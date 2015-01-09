@@ -39,8 +39,8 @@ As in *NodeJS*, the event loop will stop pumping and exit when it is empty. A mo
 
     // ... Do something with the result.
 
-`List<string>` is not thread safe, so the above is dangerous when implemented with `Tasks`.
+`List<string>` is not thread safe, so the above is dangerous when implemented with `Task`s.
 
 ## Final Word
 
-By Roel van Uden; written as an experiment. Don't hesistate to ask questions! More examples in the solution!
+Don't hesistate to ask questions! More examples in the solution!
