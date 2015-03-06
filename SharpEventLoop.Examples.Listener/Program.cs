@@ -1,57 +1,40 @@
 ﻿using System;
 using System.IO;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace SharpEventLoop.Examples.Listener
 {
     public class Program
     {
-        private static async Task RunRequestAsync(HttpListenerContext context)
+        public static void Main()
         {
-            try
+            EventLoop.Pump(() =>
             {
-                var response = context.Response;
-
-                using (var streamWriter = new StreamWriter(response.OutputStream))
-                {
-                    Console.WriteLine("[{0}] Sending the greeting ...", Thread.CurrentThread.ManagedThreadId);
-
-                    await streamWriter.WriteAsync("Hello world!");
-
-                    Console.WriteLine("[{0}] Finished the greeting!", Thread.CurrentThread.ManagedThreadId);
-                }
-            }
-            catch (HttpListenerException)
-            {
-                Console.WriteLine("[{0}] Rats! The connection went away :-(", Thread.CurrentThread.ManagedThreadId);
-            }
+                Console.WriteLine("Running on http://localhost:3000/");
+                EventLoop.Run(WebServer);
+            });
         }
 
-        private static async Task RunListenerAsync()
+        public static async Task WebServer()
         {
-            var httpListener = new HttpListener();
-            httpListener.Prefixes.Add("http://localhost:3000/");
-            httpListener.Start();
+            var listener = new HttpListener();
+            listener.Prefixes.Add("http://localhost:3000/");
+            listener.Start();
 
             while (true)
             {
-                Console.WriteLine("[{0}] Waiting for a request ...", Thread.CurrentThread.ManagedThreadId);
-
-                var context = await httpListener.GetContextAsync();
-                EventLoop.Run(() => RunRequestAsync(context));
-                if (context.Request.Url.LocalPath == "/quit") break;
-
-                Console.WriteLine("[{0}] Enqueued! Waiting for the next request!", Thread.CurrentThread.ManagedThreadId);
+                var context = await listener.GetContextAsync();
+                EventLoop.Run(() => WebServerRequest(context));
             }
         }
 
-        public static void Main(string[] args)
+        public static async Task WebServerRequest(HttpListenerContext context)
         {
-            Console.WriteLine("Listening on http://localhost:3000/");
-            Console.WriteLine("Hit http://localhost:3000/quit to break the listener!");
-            EventLoop.Pump(() => EventLoop.Run(RunListenerAsync));
+            using (var writer = new StreamWriter(context.Response.OutputStream))
+            {
+                await writer.WriteAsync("Hello world!");
+            }
         }
     }
 }

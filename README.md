@@ -56,7 +56,7 @@ This method schedules a worker on the event loop. Upon invocation of the worker,
             listener.Prefixes.Add("http://localhost:3000/");
             listener.Start();
             while (true) {
-                var context = await httpListener.GetContextAsync();
+                var context = await listener.GetContextAsync();
                 EventLoop.Run(() => WebServerRequest(context));
             }
         }
