@@ -29,12 +29,12 @@ namespace SharpEventLoop.Examples.Request
 
         public static void Main()
         {
-            EventLoop.Pump(eventLoop =>
+            EventLoop.Pump(() =>
             {
                 for (var i = 0; i < 10; i++)
                 {
                     var n = i;
-                    eventLoop.Run(() => RepeatDownloadGooglePages(n));
+                    EventLoop.Run(() => RepeatDownloadGooglePages(n));
                 }
             });
         }

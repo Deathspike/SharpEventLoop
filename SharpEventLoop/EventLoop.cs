@@ -1,132 +1,55 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
-namespace SharpEventLoop
+namespace System
 {
-    public class EventLoop : IDisposable
+    public static class EventLoop
     {
-        private readonly BlockingCollection<Action> _actions;
-        private int _numberOfConcurrentTasks;
-
-        #region Abstract
-
-        private bool Enqueue(Action action)
-        {
-            try
-            {
-                _actions.Add(action);
-                return true;
-            }
-            catch (InvalidOperationException)
-            {
-                return false;
-            }
-        }
-
-        private void Enter()
-        {
-            var currentContext = new EventLoopSynchronizationContext(Enqueue);
-            var enumerator = _actions.GetConsumingEnumerable().GetEnumerator();
-            var previousContext = SynchronizationContext.Current;
-
-            SynchronizationContext.SetSynchronizationContext(currentContext);
-
-            while (true)
-            {
-                try
-                {
-                    enumerator.MoveNext();
-                }
-                catch (InvalidOperationException)
-                {
-                    break;
-                }
-
-                try
-                {
-                    enumerator.Current();
-                }
-                catch
-                {
-                    SynchronizationContext.SetSynchronizationContext(previousContext);
-                    throw;
-                }
-            }
-
-            SynchronizationContext.SetSynchronizationContext(previousContext);
-        }
-
-        private void TryLeave()
-        {
-            if (_actions.Count != 0)
-            {
-                Enqueue(TryLeave);
-                return;
-            }
-
-            if (_numberOfConcurrentTasks == 0)
-            {
-                Dispose();
-            }
-        }
-
-        #endregion
+        [ThreadStatic]
+        private static EventLoopInternal _eventLoop;
+        private static readonly object _synchronize;
 
         #region Constructor
 
-        private EventLoop()
+        static EventLoop()
         {
-            _actions = new BlockingCollection<Action>();
+            _synchronize = new object();
         }
 
         #endregion
 
         #region Methods
-        
-        public bool Run(Func<Task> task)
-        {
-            _numberOfConcurrentTasks++;
 
-            return Enqueue(async () =>
-            {
-                try
-                {
-                    await task();
-                }
-                catch (Exception e)
-                {
-                    Enqueue(() => { throw e; });
-                }
-                finally
-                {
-                    _numberOfConcurrentTasks--;
-                    if (_numberOfConcurrentTasks == 0) Enqueue(TryLeave);
-                }
-            });
+        public static bool Run(Func<Task> worker)
+        {
+            var eventLoop = _eventLoop;
+            return eventLoop != null && _eventLoop.Run(worker);
         }
 
-        #endregion
-
-        #region Statics
-
-        public static void Pump(Action<EventLoop> initializer)
+        public static bool Pump(Action initializer)
         {
-            using (var eventLoop = new EventLoop())
+            try
             {
-                initializer(eventLoop);
-                eventLoop.Enter();
+                lock (_synchronize)
+                {
+                    if (_eventLoop != null) return false;
+                    _eventLoop = new EventLoopInternal();
+                }
+
+                initializer();
+                _eventLoop.Enter();
+                return true;
             }
-        }
-
-        #endregion
-
-        #region Implementation of IDisposable
-
-        public void Dispose()
-        {
-            _actions.Dispose();
+            finally
+            {
+                lock (_synchronize)
+                {
+                    if (_eventLoop != null)
+                    {
+                        _eventLoop.Dispose();
+                        _eventLoop = null;
+                    }
+                }
+            }
         }
 
         #endregion

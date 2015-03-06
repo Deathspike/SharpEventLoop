@@ -29,7 +29,7 @@ namespace SharpEventLoop.Examples.Listener
             }
         }
 
-        private static async Task RunListenerAsync(EventLoop eventLoop)
+        private static async Task RunListenerAsync()
         {
             var httpListener = new HttpListener();
             httpListener.Prefixes.Add("http://localhost:3000/");
@@ -40,7 +40,7 @@ namespace SharpEventLoop.Examples.Listener
                 Console.WriteLine("[{0}] Waiting for a request ...", Thread.CurrentThread.ManagedThreadId);
 
                 var context = await httpListener.GetContextAsync();
-                eventLoop.Run(() => RunRequestAsync(context));
+                EventLoop.Run(() => RunRequestAsync(context));
                 if (context.Request.Url.LocalPath == "/quit") break;
 
                 Console.WriteLine("[{0}] Enqueued! Waiting for the next request!", Thread.CurrentThread.ManagedThreadId);
@@ -51,11 +51,7 @@ namespace SharpEventLoop.Examples.Listener
         {
             Console.WriteLine("Listening on http://localhost:3000/");
             Console.WriteLine("Hit http://localhost:3000/quit to break the listener!");
-
-            EventLoop.Pump(eventLoop =>
-            {
-                eventLoop.Run(() => RunListenerAsync(eventLoop));
-            });
+            EventLoop.Pump(() => EventLoop.Run(RunListenerAsync));
         }
     }
 }
